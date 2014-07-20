@@ -33,6 +33,7 @@ func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	directory := flag.String("d", "./", "Base directory containing .box files")
+	port := flag.String("port", "8099", "Port to listen on.")
 
 	boxfiles := getBoxList(directory)
 	boxdata := getBoxData(boxfiles)
@@ -46,7 +47,7 @@ func main() {
 	http.Handle("/", m)
 
 	fmt.Println("Listening...")
-	http.ListenAndServe(":8099", nil)
+	http.ListenAndServe(":"+*port, nil)
 }
 
 type BoxHandler struct {
