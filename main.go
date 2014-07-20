@@ -56,7 +56,6 @@ type BoxHandler struct {
 func createBoxes(sb []SimpleBox) map[string]map[string]Box {
 	boxes := make(map[string]map[string]Box)
 	for _, b := range sb {
-		fmt.Println(b)
 		box := Box{}
 		box.Name = b.Boxname
 		box.Username = b.Username
@@ -83,7 +82,6 @@ func getBoxData(boxfiles []string) []SimpleBox {
 		nameparts := strings.Split(b, "-VAGRANTSLASH-")
 		if len(nameparts) == 2 {
 			provider, _ := getProvider(b)
-			fmt.Println(provider)
 			newbox := SimpleBox{}
 			newbox.Username = nameparts[0]
 			newbox.Boxname = nameparts[1][0 : len(nameparts[1])-4]
