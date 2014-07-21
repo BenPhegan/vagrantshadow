@@ -22,7 +22,7 @@ func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-
+	fmt.Println("INFO: Queried for ", user, "/", boxName)
 	box := bh.Boxes[user][boxName]
 
 	jsonResponse, _ := json.Marshal(box)
@@ -35,8 +35,29 @@ func (bh BoxHandler) DownloadBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
+	fmt.Println("INFO: Downloading ", user, "/", boxName)
+
 	localBoxfile := bh.Boxes[user][boxName]
 	http.ServeFile(w, r, localBoxfile.LocalBoxFile)
+}
+
+func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	user := vars["user"]
+	boxName := vars["boxname"]
+	fmt.Println("INFO: Checking ", user, "/", boxName)
+
+	localBoxfile := bh.Boxes[user][boxName]
+	if localBoxfile.Username != "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("INFO: 404 :", r.URL.Path, " ", r.Method)
+	w.WriteHeader(http.StatusNotFound)
 }
 
 func main() {
@@ -59,11 +80,12 @@ func main() {
 	bh.Boxes = boxes
 
 	m := mux.NewRouter()
-	m.HandleFunc("/api/v1/box/{user}/{boxname}", bh.GetBox).Methods("GET")
+	m.HandleFunc("/{user}/{boxname}", bh.GetBox).Methods("GET")
+	m.HandleFunc("/{user}/{boxname}", bh.CheckBox).Methods("HEAD")
 	//Handling downloads that look like Vagrant Cloud
 	//https://vagrantcloud.com/benphegan/boot2docker/version/2/provider/vmware_desktop.box
 	m.HandleFunc("/{user}/{boxname}/{version}/provider/{boxfile}", bh.DownloadBox).Methods("GET")
-
+	m.NotFoundHandler = http.HandlerFunc(bh.NotFound)
 	http.Handle("/", m)
 
 	fmt.Println("Listening...")
@@ -78,7 +100,7 @@ func createBoxes(sb []SimpleBox, port *string, hostname *string) map[string]map[
 	boxes := make(map[string]map[string]Box)
 	for _, b := range sb {
 		box := Box{}
-		box.Name = b.Boxname
+		box.Name = b.Username + "/" + b.Boxname
 		box.Username = b.Username
 		box.Private = false
 		box.LocalBoxFile = b.Location
@@ -87,7 +109,7 @@ func createBoxes(sb []SimpleBox, port *string, hostname *string) map[string]map[
 		provider.Name = b.Provider
 		provider.Hosted = "true"
 		provider.DownloadUrl = "http://" + *hostname + ":" + *port + "/" + b.Username + "/" + b.Boxname + "/1/provider/" + b.Provider + ".box"
-
+		provider.Url = provider.DownloadUrl
 		version := Version{}
 		version.Status = "active"
 		version.Version = "1.0"
@@ -209,4 +231,5 @@ type Provider struct {
 	Created     string `json:"created_at"`
 	Updated     string `json:"updated_at"`
 	DownloadUrl string `json:"download_url"`
+	Url         string `json:"url"`
 }
