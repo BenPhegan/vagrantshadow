@@ -1,0 +1,14 @@
+{
+	"ImportPath": "github.com/benphegan/vagrantshadow",
+	"GoVersion": "go1.3.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "14f550f51af52180c2eefed15e5fd18d63c0a64a"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "14cafe28513321476c73967a5a4f3454b6129c46"
+		}
+	]
+}
