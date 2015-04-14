@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"github.com/gorilla/mux"
 	"io"
 	"log"
@@ -22,7 +21,7 @@ func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-	fmt.Println("INFO: Queried for ", user, "/", boxName)
+	log.Println("Queried for ", user, "/", boxName)
 	box := bh.Boxes[user][boxName]
 
 	jsonResponse, _ := json.Marshal(box)
@@ -35,7 +34,7 @@ func (bh BoxHandler) DownloadBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-	fmt.Println("INFO: Downloading ", user, "/", boxName)
+	log.Println("Downloading ", user, "/", boxName)
 
 	localBoxfile := bh.Boxes[user][boxName]
 	http.ServeFile(w, r, localBoxfile.LocalBoxFile)
@@ -45,7 +44,7 @@ func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-	fmt.Println("INFO: Checking ", user, "/", boxName)
+	log.Println("Checking ", user, "/", boxName)
 
 	localBoxfile := bh.Boxes[user][boxName]
 	if localBoxfile.Username != "" {
@@ -56,7 +55,7 @@ func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("INFO: 404 :", r.URL.Path, " ", r.Method)
+	log.Println("404 :", r.URL.Path, " ", r.Method)
 	w.WriteHeader(http.StatusNotFound)
 }
 
@@ -72,9 +71,16 @@ func main() {
 		absolute = path.Clean(path.Join(wd, *directory))
 	}
 
+	log.Println("Serving files from: ", *directory)
 	boxfiles := getBoxList(absolute)
 	boxdata := getBoxData(boxfiles)
 	boxes := createBoxes(boxdata, port, hostname)
+
+	for namespace, boxinfo := range boxes {
+		for boxname, _ := range boxinfo {
+			log.Println(strings.Join([]string{"Found: ", namespace, "/", boxname}, ""))
+		}
+	}
 
 	bh := BoxHandler{}
 	bh.Boxes = boxes
@@ -88,7 +94,7 @@ func main() {
 	m.NotFoundHandler = http.HandlerFunc(bh.NotFound)
 	http.Handle("/", m)
 
-	fmt.Println("Listening...")
+	log.Println("Listening on port: ", *port)
 	http.ListenAndServe(":"+*port, nil)
 }
 
@@ -149,7 +155,7 @@ func getBoxData(boxfiles []string) []SimpleBox {
 
 func getProvider(location string) (BoxMetadata, error) {
 
-	fmt.Println("Checking: ", location)
+	log.Println("Checking: ", location)
 	//boxes are .tar.gz so we have to get a gzip stream and pass to tar.
 	f, _ := os.Open(location)
 	r, _ := gzip.NewReader(f)

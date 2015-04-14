@@ -1,4 +1,5 @@
 FROM scratch
-ADD vagrantshadow /vagrantshadow
-EXPOSE 80
-ENTRYPOINT ["/vagrantshadow"]
+MAINTAINER Ben Phegan
+ADD vagrantshadow vagrantshadow
+EXPOSE 8099
+# ENTRYPOINT ["/vagrantshadow"]
