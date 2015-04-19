@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -62,8 +63,10 @@ func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	directory := flag.String("d", "./", "Base directory containing .box files")
-	port := flag.String("port", "8099", "Port to listen on.")
+	port := flag.Int("port", 8099, "Port to listen on.")
 	hostname := flag.String("hostname", "localhost", "Hostname for static box content.")
+
+	flag.Parse()
 
 	absolute := *directory
 	if !path.IsAbs(*directory) {
@@ -71,10 +74,11 @@ func main() {
 		absolute = path.Clean(path.Join(wd, *directory))
 	}
 
+	log.Println("Responding on host: ", *hostname)
 	log.Println("Serving files from: ", *directory)
 	boxfiles := getBoxList(absolute)
 	boxdata := getBoxData(boxfiles)
-	boxes := createBoxes(boxdata, port, hostname)
+	boxes := createBoxes(boxdata, *port, hostname)
 
 	for namespace, boxinfo := range boxes {
 		for boxname, _ := range boxinfo {
@@ -95,14 +99,14 @@ func main() {
 	http.Handle("/", m)
 
 	log.Println("Listening on port: ", *port)
-	http.ListenAndServe(":"+*port, nil)
+	http.ListenAndServe(":"+strconv.Itoa(*port), nil)
 }
 
 type BoxHandler struct {
 	Boxes map[string]map[string]Box
 }
 
-func createBoxes(sb []SimpleBox, port *string, hostname *string) map[string]map[string]Box {
+func createBoxes(sb []SimpleBox, port int, hostname *string) map[string]map[string]Box {
 	boxes := make(map[string]map[string]Box)
 	for _, b := range sb {
 		box := Box{}
@@ -114,7 +118,7 @@ func createBoxes(sb []SimpleBox, port *string, hostname *string) map[string]map[
 		provider := Provider{}
 		provider.Name = b.Provider
 		provider.Hosted = "true"
-		provider.DownloadUrl = "http://" + *hostname + ":" + *port + "/" + b.Username + "/" + b.Boxname + "/1/provider/" + b.Provider + ".box"
+		provider.DownloadUrl = "http://" + *hostname + ":" + strconv.Itoa(port) + "/" + b.Username + "/" + b.Boxname + "/1/provider/" + b.Provider + ".box"
 		provider.Url = provider.DownloadUrl
 		version := Version{}
 		version.Status = "active"
