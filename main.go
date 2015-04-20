@@ -63,21 +63,25 @@ func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
-	directory := flag.String("d", "./", "Base directory containing .box files")
+	directory := flag.String("d", "./", "Semicolon separated list of directories containing .box files")
 	port := flag.Int("p", 8099, "Port to listen on.")
 	hostname := flag.String("h", "localhost", "Hostname for static box content.")
 
 	flag.Parse()
 
-	absolute := *directory
-	if !path.IsAbs(*directory) {
-		wd, _ := os.Getwd()
-		absolute = path.Clean(path.Join(wd, *directory))
+	directories := strings.Split(*directory, ";")
+	absolutedirectories := []string{}
+	for _, d := range directories {
+		if !path.IsAbs(d) {
+			wd, _ := os.Getwd()
+			absolute := path.Clean(path.Join(wd, d))
+			absolutedirectories = append(absolutedirectories, absolute)
+		}
 	}
 
 	log.Println("Responding on host: ", *hostname)
 	log.Println("Serving files from: ", *directory)
-	boxfiles := getBoxList(absolute)
+	boxfiles := getBoxList(absolutedirectories)
 	boxdata := getBoxData(boxfiles)
 	boxes := createBoxes(boxdata, *port, hostname)
 
@@ -107,6 +111,7 @@ type BoxHandler struct {
 	Boxes map[string]map[string]Box
 }
 
+//Creates the data structure used to provide box data to Vagrant
 func createBoxes(sb []SimpleBox, port int, hostname *string) map[string]map[string]Box {
 	boxes := make(map[string]map[string]Box)
 	for _, b := range sb {
@@ -135,12 +140,19 @@ func createBoxes(sb []SimpleBox, port int, hostname *string) map[string]map[stri
 	return boxes
 }
 
-func getBoxList(directory string) []string {
-	directoryglob := path.Join(directory, "*.box")
-	files, _ := filepath.Glob(directoryglob)
-	return files
+// getBoxList returns a list of .box files in the directories provided.
+func getBoxList(directories []string) []string {
+	boxes := []string{}
+	for _, d := range directories {
+
+		directoryglob := path.Join(d, "*.box")
+		files, _ := filepath.Glob(directoryglob)
+		boxes = append(boxes, files...)
+	}
+	return boxes
 }
 
+//getBoxData returns an array of SimpleBox objects based on Vagrant box files
 func getBoxData(boxfiles []string) []SimpleBox {
 	results := []SimpleBox{}
 	for _, b := range boxfiles {
@@ -158,6 +170,7 @@ func getBoxData(boxfiles []string) []SimpleBox {
 	return results
 }
 
+// Gets the provider information from the Vagrant .box files
 func getProvider(location string) (BoxMetadata, error) {
 
 	log.Println("Checking: ", location)
@@ -237,6 +250,7 @@ func getProvider(location string) (BoxMetadata, error) {
 	return BoxMetadata{}, errors.New("box: could not find metadata.json or box malformed")
 }
 
+// Gets the provider information fromt the Vagrant .box files using Zip
 func getProviderFromZip(src string) (BoxMetadata, error) {
 	r, err := zip.OpenReader(src)
 	if err != nil {
