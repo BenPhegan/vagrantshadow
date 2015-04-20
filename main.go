@@ -161,8 +161,20 @@ func getProvider(location string) (BoxMetadata, error) {
 
 	log.Println("Checking: ", location)
 	//boxes are .tar.gz so we have to get a gzip stream and pass to tar.
-	f, _ := os.Open(location)
-	r, _ := gzip.NewReader(f)
+	f, openerr := os.Open(location)
+	if openerr != nil {
+		openerrmessage := "Could not open file: " + location + " - " + openerr.Error()
+		log.Fatalln(openerrmessage)
+		return BoxMetadata{}, errors.New(openerrmessage)
+	}
+
+	r, gziperr := gzip.NewReader(f)
+	if gziperr != nil {
+		gziperrmessage := "Could not get GZIP reader: " + location + " - " + gziperr.Error()
+		log.Fatalln(gziperrmessage)
+		return BoxMetadata{}, errors.New(gziperrmessage)
+	}
+
 	tr := tar.NewReader(r)
 	// Iterate through the files in the archive.
 	for {
