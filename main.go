@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -160,7 +161,17 @@ func getBoxData(boxfiles []string) []SimpleBox {
 func getProvider(location string) (BoxMetadata, error) {
 
 	log.Println("Checking: ", location)
-	//boxes are .tar.gz so we have to get a gzip stream and pass to tar.
+	//boxes are either .tar, .tar.gz or .zip so we have to get a gzip stream and pass to tar, just tar or zip check
+
+	// Check zip first...
+	newbox, unzipError := getProviderFromZip(location)
+	if unzipError != nil {
+		log.Println("Not a zip file: " + location + " - " + unzipError.Error())
+	} else {
+		return newbox, nil
+	}
+
+	// Check tar and gzip
 	f, openerr := os.Open(location)
 	if openerr != nil {
 		openerrmessage := "Could not open file: " + location + " - " + openerr.Error()
@@ -168,29 +179,48 @@ func getProvider(location string) (BoxMetadata, error) {
 		return BoxMetadata{}, errors.New(openerrmessage)
 	}
 
+	// Try gzip first, fall back to tar
 	var tr *tar.Reader
 	r, gziperr := gzip.NewReader(f)
 	if gziperr != nil {
 		gziperrmessage := "Could not get GZIP reader: " + location + " - " + gziperr.Error()
 		log.Println(gziperrmessage)
+		f.Seek(0, 0)
 		tr = tar.NewReader(f)
 	} else {
 		tr = tar.NewReader(r)
-
 	}
 
 	// Iterate through the files in the archive.
+	// Some boxes do not have a metadata.json, generally old virtualbox boxes
+	// In this case, fall through to just checking them for an ovf and returning provider
+	metadatafound := false
+	ovf := false
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
 			// end of tar archive
+			if !metadatafound {
+				log.Println("Could not find metadata.json in file: " + location)
+				if ovf {
+					log.Println("Found OVF, creating for VirtualBox: " + location)
+					metadata := BoxMetadata{}
+					metadata.Provider = "virtualbox"
+					return metadata, nil
+				}
+			}
 			break
 		}
 		if err != nil {
 			log.Fatalln(err)
 		}
 
+		if filepath.Ext(hdr.Name) == ".ovf" {
+			ovf = true
+		}
+
 		if hdr.Name == "metadata.json" {
+			metadatafound = true
 			metadata := BoxMetadata{}
 
 			boxmetadata := BoxMetadata{}
@@ -205,6 +235,41 @@ func getProvider(location string) (BoxMetadata, error) {
 
 	}
 	return BoxMetadata{}, errors.New("box: could not find metadata.json or box malformed")
+}
+
+func getProviderFromZip(src string) (BoxMetadata, error) {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return BoxMetadata{}, err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+
+		if f.Name == "metadata.json" {
+			log.Println("ZIP!!!")
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return BoxMetadata{}, err
+		}
+		defer rc.Close()
+
+		metadata := BoxMetadata{}
+
+		boxmetadata := BoxMetadata{}
+
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(rc)
+
+		json.Unmarshal(buf.Bytes(), &boxmetadata)
+		metadata.Provider = boxmetadata.Provider
+		return metadata, nil
+
+	}
+
+	return BoxMetadata{}, nil
 }
 
 type BoxMetadata struct {
