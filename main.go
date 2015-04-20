@@ -168,14 +168,17 @@ func getProvider(location string) (BoxMetadata, error) {
 		return BoxMetadata{}, errors.New(openerrmessage)
 	}
 
+	var tr *tar.Reader
 	r, gziperr := gzip.NewReader(f)
 	if gziperr != nil {
 		gziperrmessage := "Could not get GZIP reader: " + location + " - " + gziperr.Error()
-		log.Fatalln(gziperrmessage)
-		return BoxMetadata{}, errors.New(gziperrmessage)
+		log.Println(gziperrmessage)
+		tr = tar.NewReader(f)
+	} else {
+		tr = tar.NewReader(r)
+
 	}
 
-	tr := tar.NewReader(r)
 	// Iterate through the files in the archive.
 	for {
 		hdr, err := tr.Next()
