@@ -64,8 +64,8 @@ func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	directory := flag.String("d", "./", "Base directory containing .box files")
-	port := flag.Int("port", 8099, "Port to listen on.")
-	hostname := flag.String("hostname", "localhost", "Hostname for static box content.")
+	port := flag.Int("p", 8099, "Port to listen on.")
+	hostname := flag.String("h", "localhost", "Hostname for static box content.")
 
 	flag.Parse()
 
