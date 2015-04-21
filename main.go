@@ -7,9 +7,12 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"expvar"
 	"flag"
 	"github.com/gorilla/mux"
+	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -19,11 +22,19 @@ import (
 	"strings"
 )
 
+var boxDownloads = expvar.NewInt("box_downloads")
+var boxQueries = expvar.NewInt("box_queries")
+var boxChecks = expvar.NewInt("box_checks")
+var homepageVisits = expvar.NewInt("homepage_visits")
+var boxStats = expvar.NewMap("box_stats")
+
 func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-	log.Println("Queried for ", user, "/", boxName)
+
+	boxQueries.Add(1)
+	log.Println(strings.Join([]string{"Queried for ", user, "/", boxName}, ""))
 	box := bh.Boxes[user][boxName]
 
 	jsonResponse, _ := json.Marshal(box)
@@ -38,6 +49,8 @@ func (bh BoxHandler) DownloadBox(w http.ResponseWriter, r *http.Request) {
 	boxName := vars["boxname"]
 	log.Println("Downloading ", user, "/", boxName)
 
+	boxDownloads.Add(1)
+	boxStats.Add(strings.Join([]string{user, "/", boxName}, ""), 1)
 	localBoxfile := bh.Boxes[user][boxName]
 	http.ServeFile(w, r, localBoxfile.LocalBoxFile)
 }
@@ -46,8 +59,9 @@ func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
-	log.Println("Checking ", user, "/", boxName)
+	log.Println(strings.Join([]string{"Checking ", user, "/", boxName}, ""))
 
+	boxChecks.Add(1)
 	localBoxfile := bh.Boxes[user][boxName]
 	if localBoxfile.Username != "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -56,6 +70,16 @@ func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}
 }
+
+func (bh BoxHandler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
+	t, err := template.New("homepage").Parse(bh.TemplateString)
+	if err != nil {
+		w.Write([]byte("Could not parse provided template: " + err.Error()))
+		return
+	}
+	t.Execute(w, bh)
+}
+
 func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 	log.Println("404 :", r.URL.Path, " ", r.Method)
 	w.WriteHeader(http.StatusNotFound)
@@ -66,8 +90,15 @@ func main() {
 	directory := flag.String("d", "./", "Semicolon separated list of directories containing .box files")
 	port := flag.Int("p", 8099, "Port to listen on.")
 	hostname := flag.String("h", "localhost", "Hostname for static box content.")
+	templatefile := flag.String("t", "", "Template file for the vagrantshadow homepage, if you dont like the default!")
+	writeouttemplate := flag.Bool("w", false, "Write a template page to disk so you can modify")
 
 	flag.Parse()
+
+	if *writeouttemplate {
+		//output a template homepage so people have something to play
+		outputTemplateString("hometemplate.html")
+	}
 
 	directories := strings.Split(*directory, ";")
 	absolutedirectories := []string{}
@@ -93,10 +124,15 @@ func main() {
 
 	bh := BoxHandler{}
 	bh.Boxes = boxes
+	bh.Hostname = *hostname
+	bh.Directories = absolutedirectories
+	bh.Port = *port
+	bh.TemplateString = getTemplateString(*templatefile)
 
 	m := mux.NewRouter()
 	m.HandleFunc("/{user}/{boxname}", bh.GetBox).Methods("GET")
 	m.HandleFunc("/{user}/{boxname}", bh.CheckBox).Methods("HEAD")
+	m.HandleFunc("/", bh.ShowHomepage).Methods("GET")
 	//Handling downloads that look like Vagrant Cloud
 	//https://vagrantcloud.com/benphegan/boot2docker/version/2/provider/vmware_desktop.box
 	m.HandleFunc("/{user}/{boxname}/{version}/provider/{boxfile}", bh.DownloadBox).Methods("GET")
@@ -108,7 +144,59 @@ func main() {
 }
 
 type BoxHandler struct {
-	Boxes map[string]map[string]Box
+	Boxes          map[string]map[string]Box
+	Hostname       string
+	Port           int
+	Directories    []string
+	TemplateString string
+}
+
+func getTemplateString(location string) string {
+	if _, err := os.Stat(location); err == nil {
+		log.Println("Found template file: " + location)
+		templatetext, err := ioutil.ReadFile(location)
+		if err != nil {
+			log.Println("Could not load template: " + location)
+			return getDefaultTemplateString()
+		}
+		template := string(templatetext)
+		return template
+	}
+	return getDefaultTemplateString()
+}
+
+func outputTemplateString(location string) {
+	if _, err := os.Stat(location); os.IsNotExist(err) {
+		log.Println("Writing out default home template file: " + location)
+		err := ioutil.WriteFile(location, []byte(getDefaultTemplateString()), 0644)
+		if err != nil {
+			log.Println("Failed to write default template to: " + location + " - " + err.Error())
+		}
+	} else {
+		log.Println("Default template exists on disk already")
+	}
+}
+
+func getDefaultTemplateString() string {
+	return `<html>
+		<h1>vagrantshadow</h1>
+		Welcome to vagrantshadow.
+		<h2>Configuration</h2>
+		<p>To use vagrantshadow with Vagrant:</p>
+		<ul>
+			<li><strong>Mac/Unix</strong> - <tt>export VAGRANT_SERVER_URL=http://{{ .Hostname }}:{{ .Port }}</tt></li>
+			<li><strong>Windows</strong> - <tt>set VAGRANT_SERVER_URL=http://{{ .Hostname }}:{{ .Port }}</tt></li>
+		</ul>
+		<br>
+		<h2>Available Boxes</h2>
+		{{ range $index, $element := .Boxes }}
+			{{ range $key, $value := $element }}
+				{{ $value.Name }} <br>
+			{{end }}
+		{{ end }}
+		<h2>Statistics</h2>
+		<a HREF="http://{{ .Hostname }}:{{ .Port }}/debug/vars">Debug Variables</a>
+	</html>`
 }
 
 //Creates the data structure used to provide box data to Vagrant
