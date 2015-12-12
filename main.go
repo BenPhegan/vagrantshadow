@@ -8,7 +8,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mcuadros/go-version"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -71,13 +70,16 @@ func (bh *BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (bh *BoxHandler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
-	t, err := template.New("homepage").Parse(bh.TemplateString)
-	if err != nil {
-		w.Write([]byte("Could not parse provided template: " + err.Error()))
-		return
+func showHomepage(ht *HomePageTemplate) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		t, err := template.New("homepage").Parse(ht.TemplateString)
+		if err != nil {
+			w.Write([]byte("Could not parse provided template: " + err.Error()))
+			return
+		}
+		t.Execute(w, ht.BoxHandler)
 	}
-	t.Execute(w, bh)
+	return http.HandlerFunc(fn)
 }
 
 func (bh *BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
@@ -143,9 +145,10 @@ func main() {
 
 	flag.Parse()
 
+	home := HomePageTemplate{}
 	if *writeouttemplate {
 		//output a template homepage so people have something to play
-		outputTemplateString("hometemplate.html")
+		home.OutputTemplateString("hometemplate.html")
 	}
 
 	directories := strings.Split(*directory, ";")
@@ -160,14 +163,15 @@ func main() {
 
 	bh := BoxHandler{}
 	bh.PopulateBoxes(directories, port, hostname)
-	bh.TemplateString = getTemplateString(*templatefile)
+	home.BoxHandler = &bh
+	home.TemplateString = home.GetTemplateString(*templatefile)
 
 	setUpFileWatcher(directories, func() { bh.PopulateBoxes(directories, port, hostname) })
 
 	m := mux.NewRouter()
 	m.HandleFunc("/{user}/{boxname}", bh.GetBox).Methods("GET")
 	m.HandleFunc("/{user}/{boxname}", bh.CheckBox).Methods("HEAD")
-	m.HandleFunc("/", bh.ShowHomepage).Methods("GET")
+	m.Handle("/", showHomepage(&home)).Methods("GET")
 	//Handling downloads that look like Vagrant Cloud
 	//https://vagrantcloud.com/benphegan/boot2docker/version/2/provider/vmware_desktop.box
 	m.HandleFunc("/{user}/{boxname}/{version}/{provider}/{boxfile}", bh.DownloadBox).Methods("GET")
@@ -182,54 +186,6 @@ type BoxHandler struct {
 	Boxes          map[string]map[string]Box
 	Directories    []string
 	TemplateString string
-}
-
-func getTemplateString(location string) string {
-	if _, err := os.Stat(location); err == nil {
-		log.Println("Found template file: " + location)
-		templatetext, err := ioutil.ReadFile(location)
-		if err != nil {
-			log.Println("Could not load template: " + location)
-			return getDefaultTemplateString()
-		}
-		template := string(templatetext)
-		return template
-	}
-	return getDefaultTemplateString()
-}
-
-func outputTemplateString(location string) {
-	if _, err := os.Stat(location); os.IsNotExist(err) {
-		log.Println("Writing out default home template file: " + location)
-		err := ioutil.WriteFile(location, []byte(getDefaultTemplateString()), 0644)
-		if err != nil {
-			log.Println("Failed to write default template to: " + location + " - " + err.Error())
-		}
-	} else {
-		log.Println("Default template exists on disk already")
-	}
-}
-
-func getDefaultTemplateString() string {
-	return `<html>
-		<h1>vagrantshadow</h1>
-		Welcome to vagrantshadow.
-		<h2>Configuration</h2>
-		<p>To use vagrantshadow with Vagrant:</p>
-		<ul>
-			<li><strong>Mac/Unix</strong> - <tt>export VAGRANT_SERVER_URL=http://{{ .Hostname }}:{{ .Port }}</tt></li>
-			<li><strong>Windows</strong> - <tt>set VAGRANT_SERVER_URL=http://{{ .Hostname }}:{{ .Port }}</tt></li>
-		</ul>
-		<br>
-		<h2>Available Boxes</h2>
-		{{ range $index, $element := .Boxes }}
-			{{ range $key, $value := $element }}
-				{{ $value.Name }} <br>
-			{{end }}
-		{{ end }}
-		<h2>Statistics</h2>
-		<a HREF="http://{{ .Hostname }}:{{ .Port }}/debug/vars">Debug Variables</a>
-	</html>`
 }
 
 //Creates the data structure used to provide box data to Vagrant
