@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"expvar"
 	"flag"
+	"github.com/go-fsnotify/fsnotify"
 	"github.com/gorilla/mux"
 	"github.com/mcuadros/go-version"
 	"html/template"
@@ -86,11 +87,47 @@ func (bh *BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 
 func (bh *BoxHandler) PopulateBoxes(directories []string, port *int, hostname *string) {
 	absolutedirectories := []string{}
+	for _, d := range directories {
+		if !path.IsAbs(d) {
+			wd, _ := os.Getwd()
+			absolute := path.Clean(path.Join(wd, d))
+			absolutedirectories = append(absolutedirectories, absolute)
+		}
+	}
 
 	boxfiles := getBoxList(absolutedirectories)
 	boxdata := getBoxData(boxfiles)
 	boxes := createBoxes(boxdata, *port, hostname)
 	bh.Boxes = boxes
+
+	for namespace, boxinfo := range boxes {
+		for boxname, _ := range boxinfo {
+			log.Println(strings.Join([]string{"Found: ", namespace, "/", boxname}, ""))
+		}
+	}
+}
+
+func setUpFileWatcher(directories []string, action func()) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal("Could not create file watcher, updates to file system will not be picked up.")
+	}
+	for _, d := range directories {
+		log.Println("Setting directory watch on : " + d)
+		watcher.Add(d)
+	}
+	go func() {
+		for {
+			select {
+			case ev := <-watcher.Events:
+				dirname := filepath.Dir(ev.Name)
+				log.Println("Directory change detected: " + dirname)
+				action()
+			case err := <-watcher.Errors:
+				log.Fatalln("error:", err)
+			}
+		}
+	}()
 }
 
 func main() {
@@ -118,33 +155,14 @@ func main() {
 		directories = append(directories, ".")
 	}
 
-	absolutedirectories := []string{}
-	for _, d := range directories {
-		if !path.IsAbs(d) {
-			wd, _ := os.Getwd()
-			absolute := path.Clean(path.Join(wd, d))
-			absolutedirectories = append(absolutedirectories, absolute)
-		}
-	}
-
 	log.Println("Responding on host: ", *hostname)
 	log.Println("Serving files from: ", *directory)
-	boxfiles := getBoxList(absolutedirectories)
-	boxdata := getBoxData(boxfiles)
-	boxes := createBoxes(boxdata, *port, hostname)
-
-	for namespace, boxinfo := range boxes {
-		for boxname, _ := range boxinfo {
-			log.Println(strings.Join([]string{"Found: ", namespace, "/", boxname}, ""))
-		}
-	}
 
 	bh := BoxHandler{}
-	bh.Boxes = boxes
-	bh.Hostname = *hostname
-	bh.Directories = absolutedirectories
-	bh.Port = *port
+	bh.PopulateBoxes(directories, port, hostname)
 	bh.TemplateString = getTemplateString(*templatefile)
+
+	setUpFileWatcher(directories, func() { bh.PopulateBoxes(directories, port, hostname) })
 
 	m := mux.NewRouter()
 	m.HandleFunc("/{user}/{boxname}", bh.GetBox).Methods("GET")
@@ -162,8 +180,6 @@ func main() {
 
 type BoxHandler struct {
 	Boxes          map[string]map[string]Box
-	Hostname       string
-	Port           int
 	Directories    []string
 	TemplateString string
 }
