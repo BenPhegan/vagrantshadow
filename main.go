@@ -1,23 +1,19 @@
 package main
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"expvar"
 	"flag"
 	"github.com/gorilla/mux"
+	"github.com/mcuadros/go-version"
 	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -28,7 +24,7 @@ var boxChecks = expvar.NewInt("box_checks")
 var homepageVisits = expvar.NewInt("homepage_visits")
 var boxStats = expvar.NewMap("box_stats")
 
-func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
+func (bh *BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
@@ -43,19 +39,22 @@ func (bh BoxHandler) GetBox(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonResponse)
 }
 
-func (bh BoxHandler) DownloadBox(w http.ResponseWriter, r *http.Request) {
+func (bh *BoxHandler) DownloadBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	for _, v := range vars {
+		log.Println(v)
+	}
 	user := vars["user"]
 	boxName := vars["boxname"]
 	log.Println("Downloading ", user, "/", boxName)
 
 	boxDownloads.Add(1)
 	boxStats.Add(strings.Join([]string{user, "/", boxName}, ""), 1)
-	localBoxfile := bh.Boxes[user][boxName]
-	http.ServeFile(w, r, localBoxfile.LocalBoxFile)
+	provider := bh.Boxes[user][boxName].CurrentVersion.Providers[0]
+	http.ServeFile(w, r, provider.LocalBoxFile)
 }
 
-func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
+func (bh *BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user := vars["user"]
 	boxName := vars["boxname"]
@@ -71,7 +70,7 @@ func (bh BoxHandler) CheckBox(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (bh BoxHandler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
+func (bh *BoxHandler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
 	t, err := template.New("homepage").Parse(bh.TemplateString)
 	if err != nil {
 		w.Write([]byte("Could not parse provided template: " + err.Error()))
@@ -80,12 +79,24 @@ func (bh BoxHandler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, bh)
 }
 
-func (bh BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
+func (bh *BoxHandler) NotFound(w http.ResponseWriter, r *http.Request) {
 	log.Println("404 :", r.URL.Path, " ", r.Method)
 	w.WriteHeader(http.StatusNotFound)
 }
 
+func (bh *BoxHandler) PopulateBoxes(directories []string, port *int, hostname *string) {
+	absolutedirectories := []string{}
+
+	boxfiles := getBoxList(absolutedirectories)
+	boxdata := getBoxData(boxfiles)
+	boxes := createBoxes(boxdata, *port, hostname)
+	bh.Boxes = boxes
+}
+
 func main() {
+
+	//We expect files in the format:
+	// owner-VAGRANTSLASH-boxname__provider__version.box
 
 	directory := flag.String("d", "./", "Semicolon separated list of directories containing .box files")
 	port := flag.Int("p", 8099, "Port to listen on.")
@@ -101,6 +112,12 @@ func main() {
 	}
 
 	directories := strings.Split(*directory, ";")
+
+	//Add a default of . so we dont always have to add a directory...
+	if len(directories) == 0 {
+		directories = append(directories, ".")
+	}
+
 	absolutedirectories := []string{}
 	for _, d := range directories {
 		if !path.IsAbs(d) {
@@ -135,7 +152,7 @@ func main() {
 	m.HandleFunc("/", bh.ShowHomepage).Methods("GET")
 	//Handling downloads that look like Vagrant Cloud
 	//https://vagrantcloud.com/benphegan/boot2docker/version/2/provider/vmware_desktop.box
-	m.HandleFunc("/{user}/{boxname}/{version}/provider/{boxfile}", bh.DownloadBox).Methods("GET")
+	m.HandleFunc("/{user}/{boxname}/{version}/{provider}/{boxfile}", bh.DownloadBox).Methods("GET")
 	m.NotFoundHandler = http.HandlerFunc(bh.NotFound)
 	http.Handle("/", m)
 
@@ -207,32 +224,49 @@ func createBoxes(sb []SimpleBox, port int, hostname *string) map[string]map[stri
 		box.Name = b.Username + "/" + b.Boxname
 		box.Username = b.Username
 		box.Private = false
-		box.LocalBoxFile = b.Location
 
 		provider := Provider{}
 		provider.Name = b.Provider
 		provider.Hosted = "true"
-		provider.DownloadUrl = "http://" + *hostname + ":" + strconv.Itoa(port) + "/" + b.Username + "/" + b.Boxname + "/1/provider/" + b.Provider + ".box"
+		provider.DownloadUrl = "http://" + *hostname + ":" + strconv.Itoa(port) + "/" + b.Username + "/" + b.Boxname + "/" + b.Version + "/" + b.Provider + "/" + b.Provider + ".box"
 		provider.Url = provider.DownloadUrl
-		version := Version{}
-		version.Status = "active"
-		version.Version = "1.0"
+		provider.LocalBoxFile = b.Location
 
-		version.Providers = []Provider{provider}
+		if len(box.Versions) > 0 {
+			for _, v := range box.Versions {
+				if v.Version == b.Version {
+					v.Providers = append(v.Providers, provider)
+				}
+			}
+		} else {
+			newversion := Version{}
+			newversion.Status = "active"
+			newversion.Version = b.Version
+			newversion.Providers = []Provider{provider}
+			box.Versions = []Version{newversion}
+			if box.CurrentVersion == nil {
+				box.CurrentVersion = &newversion
+			} else {
+				if version.Compare(box.CurrentVersion.Version, newversion.Version, "<") {
+					box.CurrentVersion = &newversion
+				}
+			}
+		}
 
-		box.Versions = []Version{version}
-		box.CurrentVersion = version
-		boxes[b.Username] = make(map[string]Box)
+		if boxes[b.Username] == nil {
+			boxes[b.Username] = make(map[string]Box)
+		}
 		boxes[b.Username][b.Boxname] = box
 	}
+
 	return boxes
 }
 
 // getBoxList returns a list of .box files in the directories provided.
+// Returns full path
 func getBoxList(directories []string) []string {
 	boxes := []string{}
 	for _, d := range directories {
-
 		directoryglob := path.Join(d, "*.box")
 		files, _ := filepath.Glob(directoryglob)
 		boxes = append(boxes, files...)
@@ -243,135 +277,18 @@ func getBoxList(directories []string) []string {
 //getBoxData returns an array of SimpleBox objects based on Vagrant box files
 func getBoxData(boxfiles []string) []SimpleBox {
 	results := []SimpleBox{}
+	var myExp = regexp.MustCompile(`(?P<owner>\w*)-VAGRANTSLASH-(?P<boxname>[a-zA-Z0-9]*)__(?P<provider>[a-zA-Z0-9]*)__(?P<version>[a-zA-Z0-9\.-]*).box`)
 	for _, b := range boxfiles {
-		nameparts := strings.Split(filepath.Base(b), "-VAGRANTSLASH-")
-		if len(nameparts) == 2 {
-			provider, _ := getProvider(b)
-			newbox := SimpleBox{}
-			newbox.Username = nameparts[0]
-			newbox.Boxname = nameparts[1][0 : len(nameparts[1])-4]
-			newbox.Location = b
-			newbox.Provider = provider.Provider
-			results = append(results, newbox)
+		matches := myExp.FindStringSubmatch(filepath.Base(b))
+		if matches == nil || len(matches) != 5 {
+			log.Println("Could not match metadata from filename: " + filepath.Base(b))
+			return results
 		}
+		newbox := SimpleBox{Username: matches[1], Boxname: matches[2], Location: b, Provider: matches[3], Version: matches[4]}
+		results = append(results, newbox)
 	}
+
 	return results
-}
-
-// Gets the provider information from the Vagrant .box files
-func getProvider(location string) (BoxMetadata, error) {
-
-	log.Println("Checking: ", location)
-	//boxes are either .tar, .tar.gz or .zip so we have to get a gzip stream and pass to tar, just tar or zip check
-
-	// Check zip first...
-	newbox, unzipError := getProviderFromZip(location)
-	if unzipError != nil {
-		log.Println("Not a zip file: " + location + " - " + unzipError.Error())
-	} else {
-		return newbox, nil
-	}
-
-	// Check tar and gzip
-	f, openerr := os.Open(location)
-	if openerr != nil {
-		openerrmessage := "Could not open file: " + location + " - " + openerr.Error()
-		log.Fatalln(openerrmessage)
-		return BoxMetadata{}, errors.New(openerrmessage)
-	}
-
-	// Try gzip first, fall back to tar
-	var tr *tar.Reader
-	r, gziperr := gzip.NewReader(f)
-	if gziperr != nil {
-		gziperrmessage := "Could not get GZIP reader: " + location + " - " + gziperr.Error()
-		log.Println(gziperrmessage)
-		f.Seek(0, 0)
-		tr = tar.NewReader(f)
-	} else {
-		tr = tar.NewReader(r)
-	}
-
-	// Iterate through the files in the archive.
-	// Some boxes do not have a metadata.json, generally old virtualbox boxes
-	// In this case, fall through to just checking them for an ovf and returning provider
-	metadatafound := false
-	ovf := false
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			// end of tar archive
-			if !metadatafound {
-				log.Println("Could not find metadata.json in file: " + location)
-				if ovf {
-					log.Println("Found OVF, creating for VirtualBox: " + location)
-					metadata := BoxMetadata{}
-					metadata.Provider = "virtualbox"
-					return metadata, nil
-				}
-			}
-			break
-		}
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		if filepath.Ext(hdr.Name) == ".ovf" {
-			ovf = true
-		}
-
-		if hdr.Name == "metadata.json" {
-			metadatafound = true
-			metadata := BoxMetadata{}
-
-			boxmetadata := BoxMetadata{}
-
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(tr)
-
-			json.Unmarshal(buf.Bytes(), &boxmetadata)
-			metadata.Provider = boxmetadata.Provider
-			return metadata, nil
-		}
-
-	}
-	return BoxMetadata{}, errors.New("box: could not find metadata.json or box malformed")
-}
-
-// Gets the provider information fromt the Vagrant .box files using Zip
-func getProviderFromZip(src string) (BoxMetadata, error) {
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return BoxMetadata{}, err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-
-		if f.Name == "metadata.json" {
-			log.Println("ZIP!!!")
-		}
-
-		rc, err := f.Open()
-		if err != nil {
-			return BoxMetadata{}, err
-		}
-		defer rc.Close()
-
-		metadata := BoxMetadata{}
-
-		boxmetadata := BoxMetadata{}
-
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(rc)
-
-		json.Unmarshal(buf.Bytes(), &boxmetadata)
-		metadata.Provider = boxmetadata.Provider
-		return metadata, nil
-
-	}
-
-	return BoxMetadata{}, nil
 }
 
 type BoxMetadata struct {
@@ -383,6 +300,7 @@ type SimpleBox struct {
 	Boxname  string
 	Location string
 	Provider string
+	Version  string
 }
 
 type Box struct {
@@ -395,9 +313,8 @@ type Box struct {
 	DescriptionMarkdown string    `json:"description_markdown"`
 	Username            string    `json:"username"`
 	Private             bool      `json:"private"`
-	CurrentVersion      Version   `json:"current_version"`
+	CurrentVersion      *Version  `json:"current_version"`
 	Versions            []Version `json:"versions"`
-	LocalBoxFile        string    `json:"-"`
 }
 
 type Version struct {
@@ -415,13 +332,14 @@ type Version struct {
 }
 
 type Provider struct {
-	Name        string `json:"name"`
-	Hosted      string `json:"hosted"`
-	HostedToken string `json:"hosted_token"`
-	OriginalUrl string `json:"original_url"`
-	UploadUrl   string `json:"upload_url"`
-	Created     string `json:"created_at"`
-	Updated     string `json:"updated_at"`
-	DownloadUrl string `json:"download_url"`
-	Url         string `json:"url"`
+	Name         string `json:"name"`
+	Hosted       string `json:"hosted"`
+	HostedToken  string `json:"hosted_token"`
+	OriginalUrl  string `json:"original_url"`
+	UploadUrl    string `json:"upload_url"`
+	Created      string `json:"created_at"`
+	Updated      string `json:"updated_at"`
+	DownloadUrl  string `json:"download_url"`
+	Url          string `json:"url"`
+	LocalBoxFile string `json:"-"`
 }
