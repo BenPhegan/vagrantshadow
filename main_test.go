@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/stretchr/testify/assert"
 	"testing"
 )
 
