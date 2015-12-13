@@ -77,7 +77,10 @@ func showHomepage(ht *HomePageTemplate) http.Handler {
 			w.Write([]byte("Could not parse provided template: " + err.Error()))
 			return
 		}
-		t.Execute(w, ht.BoxHandler)
+		err = t.Execute(w, ht.BoxHandler)
+		if err != nil {
+			log.Fatalln("Failed to execute homepage template: " + err.Error())
+		}
 	}
 	return http.HandlerFunc(fn)
 }
@@ -162,6 +165,8 @@ func main() {
 	log.Println("Serving files from: ", *directory)
 
 	bh := BoxHandler{}
+	bh.Hostname = *hostname
+	bh.Port = *port
 	bh.PopulateBoxes(directories, port, hostname)
 	home.BoxHandler = &bh
 	home.TemplateString = home.GetTemplateString(*templatefile)
@@ -186,6 +191,8 @@ type BoxHandler struct {
 	Boxes          map[string]map[string]Box
 	Directories    []string
 	TemplateString string
+	Hostname       string
+	Port           int
 }
 
 //Creates the data structure used to provide box data to Vagrant
