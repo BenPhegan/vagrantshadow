@@ -7,8 +7,9 @@ import (
 
 func TestCanConstructBoxFromFilename(t *testing.T) {
 	assert := assert.New(t)
+	bh := BoxHandler{}
 	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__virtualbox__1.0.box"}
-	boxes := getBoxData(filenames)
+	boxes := bh.getBoxData(filenames)
 	assert.Equal(1, len(boxes), "We should get one box")
 	assert.Equal("development", boxes[0].Boxname)
 	assert.Equal("benphegan", boxes[0].Username)
@@ -18,25 +19,29 @@ func TestCanConstructBoxFromFilename(t *testing.T) {
 
 func TestCanConstructMultipleBoxexFromFilenames(t *testing.T) {
 	assert := assert.New(t)
+	bh := BoxHandler{}
+
 	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__virtualbox__1.0.box", "/tmp/benphegan-VAGRANTSLASH-development__virtualbox__2.0.box"}
-	boxes := getBoxData(filenames)
+	boxes := bh.getBoxData(filenames)
 	assert.Equal(2, len(boxes), "We should get two boxes")
 }
 
 func TestCanCreateTwoBoxesFromSimpleBoxes(t *testing.T) {
 	assert := assert.New(t)
+	bh := BoxHandler{}
 	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0"},
 		SimpleBox{Boxname: "uat", Username: "benphegan", Provider: "virtualbox", Version: "1.0"}}
 	host := "localhost"
-	realBoxes := createBoxes(boxes, 80, &host)
+	realBoxes := bh.createBoxes(boxes, 80, &host)
 	assert.Equal(2, len(realBoxes["benphegan"]))
 }
 
 func TestCreatesCorrectBoxFromSimpleBox(t *testing.T) {
 	assert := assert.New(t)
+	bh := BoxHandler{}
 	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0"}}
 	host := "localhost"
-	realBoxes := createBoxes(boxes, 80, &host)
+	realBoxes := bh.createBoxes(boxes, 80, &host)
 	assert.Equal(1, len(realBoxes["benphegan"]))
 	assert.Equal("2.0", realBoxes["benphegan"]["dev"].CurrentVersion.Version)
 	assert.Equal(1, len(realBoxes["benphegan"]["dev"].CurrentVersion.Providers))
@@ -44,11 +49,12 @@ func TestCreatesCorrectBoxFromSimpleBox(t *testing.T) {
 
 func TestSetsCorrectBoxAsCurrent(t *testing.T) {
 	assert := assert.New(t)
+	bh := BoxHandler{}
 	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0"},
 		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0"},
 		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1"}}
 	host := "localhost"
-	realBoxes := createBoxes(boxes, 80, &host)
+	realBoxes := bh.createBoxes(boxes, 80, &host)
 	assert.Equal("4.1", realBoxes["benphegan"]["dev"].CurrentVersion.Version)
 
 }
