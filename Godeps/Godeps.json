@@ -1,7 +1,16 @@
 {
-	"ImportPath": "github.com/benphegan/vagrantshadow",
-	"GoVersion": "go1.3.1",
+	"ImportPath": "github.com/BenPhegan/vagrantshadow",
+	"GoVersion": "go1.5.2",
 	"Deps": [
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
+		},
+		{
+			"ImportPath": "github.com/go-fsnotify/fsnotify",
+			"Comment": "v1.2.5",
+			"Rev": "2cdd39bd6129c6a49c74fb07fb9d77ba1271c572"
+		},
 		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "14f550f51af52180c2eefed15e5fd18d63c0a64a"
@@ -9,6 +18,19 @@
 		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Rev": "14cafe28513321476c73967a5a4f3454b6129c46"
+		},
+		{
+			"ImportPath": "github.com/mcuadros/go-version",
+			"Rev": "d52711f8d6bea8dc01efafdb68ad95a4e2606630"
+		},
+		{
+			"ImportPath": "github.com/pmezard/go-difflib/difflib",
+			"Rev": "e8554b8641db39598be7f6342874b958f12ae1d4"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Comment": "v1.0-88-ge3a8ff8",
+			"Rev": "e3a8ff8ce36581f87a15341206f205b1da467059"
 		}
 	]
 }
