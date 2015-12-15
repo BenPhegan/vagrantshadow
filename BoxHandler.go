@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 )
 
 type BoxHandler struct {
@@ -113,9 +112,13 @@ func (bh *BoxHandler) PopulateBoxes(directories []string, port *int, hostname *s
 	boxdata := bh.getBoxData(boxfiles)
 	bh.createBoxes(boxdata, *port, hostname)
 
-	for namespace, boxinfo := range bh.Boxes {
-		for boxname, _ := range boxinfo {
-			log.Println(strings.Join([]string{"Found: ", namespace, "/", boxname}, ""))
+	for _, boxinfo := range bh.Boxes {
+		for boxname, box := range boxinfo {
+			for _, version := range box.Versions {
+				for _, provider := range version.Providers {
+					log.Println("Found " + box.Username + "/" + boxname + "/" + version.Version + "/" + provider.Name)
+				}
+			}
 		}
 	}
 }

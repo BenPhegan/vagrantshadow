@@ -48,7 +48,7 @@ func downloadBox(bh *BoxHandler) http.Handler {
 		boxName := vars["boxname"]
 		provider := vars["provider"]
 		version := vars["version"]
-		log.Println("Downloading " + user + "/" + boxName + "/" + provider + "/" + version)
+		log.Println("Downloading " + user + "/" + boxName + "/" + version + "/" + provider)
 
 		boxDownloads.Add(1)
 		boxStats.Add(strings.Join([]string{user, "/", boxName, "/", provider, "/", version}, ""), 1)
