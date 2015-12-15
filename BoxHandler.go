@@ -19,7 +19,6 @@ type BoxHandler struct {
 	Port           int
 }
 
-
 type BoxMetadata struct {
 	Provider string `json:"provider"`
 }
@@ -73,7 +72,6 @@ type Provider struct {
 	LocalBoxFile string `json:"-"`
 }
 
-
 func (bh *BoxHandler) BoxRegex() string {
 	return `(?P<owner>\w*)-VAGRANTSLASH-(?P<boxname>[a-zA-Z0-9]*)__(?P<provider>[a-zA-Z0-9]*)__(?P<version>[a-zA-Z0-9\.-]*).box`
 }
@@ -83,7 +81,17 @@ func (bh *BoxHandler) BoxAvailable(username string, boxname string) bool {
 }
 
 func (bh *BoxHandler) GetBoxFileLocation(username string, boxName string, provider string, version string) string {
-	return bh.Boxes[username][boxName].CurrentVersion.Providers[0].LocalBoxFile
+	boxList := bh.Boxes[username][boxName]
+	for _, box := range boxList.Versions {
+		if box.Version == version {
+			for _, boxprovider := range box.Providers {
+				if boxprovider.Name == provider {
+					return boxprovider.LocalBoxFile
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (bh *BoxHandler) GetBox(user string, boxName string) Box {
@@ -103,10 +111,9 @@ func (bh *BoxHandler) PopulateBoxes(directories []string, port *int, hostname *s
 	bh.Directories = absolutedirectories
 	boxfiles := getBoxList(absolutedirectories)
 	boxdata := bh.getBoxData(boxfiles)
-	boxes := bh.createBoxes(boxdata, *port, hostname)
-	bh.Boxes = boxes
+	bh.createBoxes(boxdata, *port, hostname)
 
-	for namespace, boxinfo := range boxes {
+	for namespace, boxinfo := range bh.Boxes {
 		for boxname, _ := range boxinfo {
 			log.Println(strings.Join([]string{"Found: ", namespace, "/", boxname}, ""))
 		}
@@ -144,13 +151,17 @@ func (bh *BoxHandler) getBoxData(boxfiles []string) []SimpleBox {
 }
 
 //Creates the data structure used to provide box data to Vagrant
-func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) map[string]map[string]Box {
+func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) {
 	boxes := make(map[string]map[string]Box)
 	for _, b := range sb {
-		box := Box{}
-		box.Name = b.Username + "/" + b.Boxname
-		box.Username = b.Username
-		box.Private = false
+
+		box := boxes[b.Username][b.Boxname]
+		if box.Name == "" {
+			box = Box{}
+			box.Name = b.Username + "/" + b.Boxname
+			box.Username = b.Username
+			box.Private = false
+		}
 
 		provider := Provider{}
 		provider.Name = b.Provider
@@ -160,10 +171,20 @@ func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) ma
 		provider.LocalBoxFile = b.Location
 
 		if len(box.Versions) > 0 {
-			for _, v := range box.Versions {
+			providerAppended := false
+			for i, v := range box.Versions {
 				if v.Version == b.Version {
-					v.Providers = append(v.Providers, provider)
+					box.Versions[i].Providers = append(box.Versions[i].Providers, provider)
+					providerAppended = true
 				}
+			}
+			
+			if providerAppended == false {
+				newversion := Version{}
+				newversion.Status = "active"
+				newversion.Version = b.Version
+				newversion.Providers = []Provider{provider}
+				box.Versions = append(box.Versions, newversion)
 			}
 		} else {
 			newversion := Version{}
@@ -171,20 +192,24 @@ func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) ma
 			newversion.Version = b.Version
 			newversion.Providers = []Provider{provider}
 			box.Versions = []Version{newversion}
-			if box.CurrentVersion == nil {
-				box.CurrentVersion = &newversion
-			} else {
-				if version.Compare(box.CurrentVersion.Version, newversion.Version, "<") {
-					box.CurrentVersion = &newversion
-				}
-			}
 		}
 
 		if boxes[b.Username] == nil {
 			boxes[b.Username] = make(map[string]Box)
 		}
+
+		box.CurrentVersion = nil
+		for _, v := range box.Versions {
+			if box.CurrentVersion == nil {
+				box.CurrentVersion = &v
+			}
+			if version.Compare(box.CurrentVersion.Version, v.Version, "<") {
+				box.CurrentVersion = &v
+			}
+		}
+
 		boxes[b.Username][b.Boxname] = box
 	}
 
-	return boxes
+	bh.Boxes = boxes
 }

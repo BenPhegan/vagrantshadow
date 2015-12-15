@@ -21,51 +21,51 @@ var homepageVisits = expvar.NewInt("homepage_visits")
 var boxStats = expvar.NewMap("box_stats")
 
 func getBox(bh *BoxHandler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request){
-	vars := mux.Vars(r)
-	user := vars["user"]
-	boxName := vars["boxname"]
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		user := vars["user"]
+		boxName := vars["boxname"]
 
-	boxQueries.Add(1)
-	log.Println(strings.Join([]string{"Queried for ", user, "/", boxName}, ""))
-	box := bh.GetBox(user,boxName)
+		boxQueries.Add(1)
+		log.Println("Queried for " + user + "/" + boxName)
+		box := bh.GetBox(user, boxName)
 
-	jsonResponse, _ := json.Marshal(box)
+		jsonResponse, _ := json.Marshal(box)
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write(jsonResponse)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write(jsonResponse)
 	}
 	return http.HandlerFunc(fn)
 }
 
 func downloadBox(bh *BoxHandler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	for _, v := range vars {
-		log.Println(v)
-	}
-	user := vars["user"]
-	boxName := vars["boxname"]
-	provider := vars["provider"]
-	version := vars["version"]
-	log.Println("Downloading ", user, "/", boxName, "/", provider, "/", version)
+		vars := mux.Vars(r)
+		for _, v := range vars {
+			log.Println(v)
+		}
+		user := vars["user"]
+		boxName := vars["boxname"]
+		provider := vars["provider"]
+		version := vars["version"]
+		log.Println("Downloading " + user + "/" + boxName + "/" + provider + "/" + version)
 
-	boxDownloads.Add(1)
-	boxStats.Add(strings.Join([]string{user, "/", boxName, "/", provider, "/", version}, ""), 1)
-	http.ServeFile(w, r, bh.GetBoxFileLocation(user, boxName, provider, version))
+		boxDownloads.Add(1)
+		boxStats.Add(strings.Join([]string{user, "/", boxName, "/", provider, "/", version}, ""), 1)
+		http.ServeFile(w, r, bh.GetBoxFileLocation(user, boxName, provider, version))
 	}
 	return http.HandlerFunc(fn)
 }
 
 func checkBox(bh *BoxHandler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request){
+	fn := func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		user := vars["user"]
 		boxName := vars["boxname"]
-		log.Println(strings.Join([]string{"Checking ", user, "/", boxName}, ""))
-	
+		log.Println("Checking " + user + "/" + boxName)
+
 		boxChecks.Add(1)
-		if bh.BoxAvailable(user,boxName) {
+		if bh.BoxAvailable(user, boxName) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 		} else {
