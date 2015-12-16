@@ -41,9 +41,6 @@ func getBox(bh *BoxHandler) http.Handler {
 func downloadBox(bh *BoxHandler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		for _, v := range vars {
-			log.Println(v)
-		}
 		user := vars["user"]
 		boxName := vars["boxname"]
 		provider := vars["provider"]
