@@ -8,7 +8,7 @@ import (
 func TestCanConstructBoxFromFilename(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
-	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__virtualbox__1.0.box"}
+	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__1.0__virtualbox.box"}
 	boxes := bh.getBoxData(filenames)
 	assert.Equal(1, len(boxes), "We should get one box")
 	assert.Equal("development", boxes[0].Boxname)
@@ -21,7 +21,7 @@ func TestCanConstructMultipleBoxexFromFilenames(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
 
-	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__virtualbox__1.0.box", "/tmp/benphegan-VAGRANTSLASH-development__virtualbox__2.0.box"}
+	filenames := []string{"/tmp/benphegan-VAGRANTSLASH-development__1.0__virtualbox.box", "/tmp/benphegan-VAGRANTSLASH-development__2.0__virtualbox.box"}
 	boxes := bh.getBoxData(filenames)
 	assert.Equal(2, len(boxes), "We should get two boxes")
 }
@@ -73,34 +73,34 @@ func TestCorrectProvidersCreated(t *testing.T) {
 func TestCanGetBoxFileLocationForCurrent(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
-	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__2.0.box"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__1.0.box"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__4.1.box"}}
+	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__1.0__virtualbox.box"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1", Location: "/tmp/benphegan-VAGRANTSLASH-dev__4.1__virtualbox.box"}}
 	host := "localhost"
 	bh.createBoxes(boxes, 80, &host)
-	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__4.1.box", bh.GetBoxFileLocation("benphegan", "dev", "virtualbox", "4.1"))
+	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__4.1__virtualbox.box", bh.GetBoxFileLocation("benphegan", "dev", "virtualbox", "4.1"))
 }
 
 func TestCanGetBoxFileLocationForSpecificProvider(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
-	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__2.0.box"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "1.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__vmware__1.0.box"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__4.1.box"}}
+	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "1.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__1.0__vmware.box"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1", Location: "/tmp/benphegan-VAGRANTSLASH-dev__4.1__virtualbox.box"}}
 	host := "localhost"
 	bh.createBoxes(boxes, 80, &host)
-	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__vmware__1.0.box", bh.GetBoxFileLocation("benphegan", "dev", "vmware", "1.0"))
+	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__1.0__vmware.box", bh.GetBoxFileLocation("benphegan", "dev", "vmware", "1.0"))
 }
 
 func TestCanGetTwoProvidersForOneVersion(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
-	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__2.0.box"},
-						SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__vmware__2.0.box"}}
+	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box"},
+						SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__vmware.box"}}
 	host := "localhost"
 	bh.createBoxes(boxes, 80, &host)
 	assert.Equal(2, len(bh.Boxes["benphegan"]["dev"].Versions[0].Providers))
-	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__vmware__2.0.box", bh.GetBoxFileLocation("benphegan", "dev", "vmware", "2.0"))
-	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__virtualbox__2.0.box", bh.GetBoxFileLocation("benphegan", "dev", "virtualbox", "2.0"))
+	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__2.0__vmware.box", bh.GetBoxFileLocation("benphegan", "dev", "vmware", "2.0"))
+	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box", bh.GetBoxFileLocation("benphegan", "dev", "virtualbox", "2.0"))
 }
 

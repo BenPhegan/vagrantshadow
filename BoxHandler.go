@@ -73,7 +73,7 @@ type Provider struct {
 }
 
 func (bh *BoxHandler) BoxRegex() string {
-	return `(?P<owner>\w*)-VAGRANTSLASH-(?P<boxname>[a-zA-Z0-9]*)__(?P<provider>[a-zA-Z0-9]*)__(?P<version>[a-zA-Z0-9\.-]*).box`
+	return `(?P<owner>\w*)-VAGRANTSLASH-(?P<boxname>[a-zA-Z0-9]*)__(?P<version>[a-zA-Z0-9\.-]*)__(?P<provider>[a-zA-Z0-9]*).box`
 }
 
 func (bh *BoxHandler) BoxAvailable(username string, boxname string) bool {
@@ -143,7 +143,7 @@ func (bh *BoxHandler) getBoxData(boxfiles []string) []SimpleBox {
 			log.Println("Could not match metadata from filename: " + filepath.Base(b))
 			return results
 		}
-		newbox := SimpleBox{Username: matches[1], Boxname: matches[2], Location: b, Provider: matches[3], Version: matches[4]}
+		newbox := SimpleBox{Username: matches[1], Boxname: matches[2], Location: b, Provider: matches[4], Version: matches[3]}
 		results = append(results, newbox)
 	}
 
