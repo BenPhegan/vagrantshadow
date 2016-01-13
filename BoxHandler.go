@@ -105,6 +105,8 @@ func (bh *BoxHandler) PopulateBoxes(directories []string, port *int, hostname *s
 			wd, _ := os.Getwd()
 			absolute := path.Clean(path.Join(wd, d))
 			absolutedirectories = append(absolutedirectories, absolute)
+		} else {
+			absolutedirectories = append(absolutedirectories, d)
 		}
 	}
 	bh.Directories = absolutedirectories
