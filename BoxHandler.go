@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/mcuadros/go-version"
+	"github.com/mcuadros/go-version"
 	"log"
 	"os"
 	"path"
