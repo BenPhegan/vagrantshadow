@@ -1,0 +1,12 @@
+[submodule "vendor/github.com/go-fsnotify/fsnotify"]
+	path = vendor/github.com/go-fsnotify/fsnotify
+	url = git://github.com/go-fsnotify/fsnotify
+[submodule "vendor/github.com/gorilla/context"]
+	path = vendor/github.com/gorilla/context
+	url = git://github.com/gorilla/context
+[submodule "vendor/github.com/gorilla/mux"]
+	path = vendor/github.com/gorilla/mux
+	url = git://github.com/gorilla/mux
+[submodule "vendor/github.com/mcuadros/go-version"]
+	path = vendor/github.com/mcuadros/go-version
+	url = git://github.com/mcuadros/go-version
