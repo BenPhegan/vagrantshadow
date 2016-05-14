@@ -11,5 +11,5 @@
 	path = vendor/github.com/mcuadros/go-version
 	url = git://github.com/mcuadros/go-version
 [submodule "vendor/golang.org/x/sys"]
-        path = vendor/golang.org/x/sys
-        url = https://go.googlesource.com/sys
+	path = vendor/golang.org/x/sys
+	url = https://go.googlesource.com/sys
