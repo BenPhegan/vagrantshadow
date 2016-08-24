@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"expvar"
 	"flag"
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/go-fsnotify/fsnotify"
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/gorilla/mux"
 	"html/template"
 	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/go-fsnotify/fsnotify"
+	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/gorilla/mux"
 )
 
 var boxDownloads = expvar.NewInt("box_downloads")
@@ -76,12 +77,13 @@ func showHomepage(ht *HomePageTemplate) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.New("homepage").Parse(ht.TemplateString)
 		if err != nil {
-			w.Write([]byte("Could not parse provided template: " + err.Error()))
+			log.Println("Could not parse provided template: " + err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		err = t.Execute(w, ht.BoxHandler)
 		if err != nil {
-			log.Fatalln("Failed to execute homepage template: " + err.Error())
+			log.Println("Failed to execute homepage template: " + err.Error())
 		}
 	}
 	return http.HandlerFunc(fn)
