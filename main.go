@@ -15,11 +15,13 @@ import (
 	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/gorilla/mux"
 )
 
-var boxDownloads = expvar.NewInt("box_downloads")
-var boxQueries = expvar.NewInt("box_queries")
-var boxChecks = expvar.NewInt("box_checks")
+var boxDownloadsTotal = expvar.NewInt("box_downloads_total")
+var boxQueries = expvar.NewMap("box_queries")
+var boxQueriesTotal = expvar.NewInt("box_queries_total")
+var boxChecks = expvar.NewMap("box_checks")
+var boxChecksTotal = expvar.NewInt("box_checks_total")
 var homepageVisits = expvar.NewInt("homepage_visits")
-var boxStats = expvar.NewMap("box_stats")
+var boxDownloads = expvar.NewMap("box_downloads")
 
 func getBox(bh *BoxHandler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
@@ -27,8 +29,10 @@ func getBox(bh *BoxHandler) http.Handler {
 		user := vars["user"]
 		boxName := vars["boxname"]
 
-		boxQueries.Add(1)
+		boxQueries.Add(strings.Join([]string{user, "/", boxName}, ""), 1)
+		boxQueriesTotal.Add(1)
 		log.Println("Queried for " + user + "/" + boxName)
+
 		box := bh.GetBox(user, boxName)
 
 		jsonResponse, _ := json.Marshal(box)
@@ -47,9 +51,8 @@ func downloadBox(bh *BoxHandler) http.Handler {
 		provider := vars["provider"]
 		version := vars["version"]
 		log.Println("Downloading " + user + "/" + boxName + "/" + version + "/" + provider)
-
-		boxDownloads.Add(1)
-		boxStats.Add(strings.Join([]string{user, "/", boxName, "/", provider, "/", version}, ""), 1)
+		boxDownloads.Add(strings.Join([]string{user, "/", boxName, "/", provider, "/", version}, ""), 1)
+		boxDownloadsTotal.Add(1)
 		http.ServeFile(w, r, bh.GetBoxFileLocation(user, boxName, provider, version))
 	}
 	return http.HandlerFunc(fn)
@@ -61,8 +64,8 @@ func checkBox(bh *BoxHandler) http.Handler {
 		user := vars["user"]
 		boxName := vars["boxname"]
 		log.Println("Checking " + user + "/" + boxName)
-
-		boxChecks.Add(1)
+		boxChecks.Add(strings.Join([]string{user, "/", boxName}, ""), 1)
+		boxChecksTotal.Add(1)
 		if bh.BoxAvailable(user, boxName) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -75,6 +78,8 @@ func checkBox(bh *BoxHandler) http.Handler {
 
 func showHomepage(ht *HomePageTemplate) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		homepageVisits.Add(1)
+
 		t, err := template.New("homepage").Parse(ht.TemplateString)
 		if err != nil {
 			log.Println("Could not parse provided template: " + err.Error())
@@ -118,9 +123,6 @@ func setUpFileWatcher(directories []string, action func()) {
 }
 
 func main() {
-
-	//We expect files in the format:
-	// owner-VAGRANTSLASH-boxname__provider__version.box
 
 	directory := flag.String("d", "./", "Semicolon separated list of directories containing .box files")
 	port := flag.Int("p", 8099, "Port to listen on.")
