@@ -1,5 +1,6 @@
 FROM scratch
 MAINTAINER Ben Phegan
-ADD vagrantshadow vagrantshadow
+ADD vagrantshadow /vagrantshadow
+VOLUME /boxes
 EXPOSE 8099
-ENTRYPOINT ["/vagrantshadow"]
+CMD ["/vagrantshadow","-d", "/boxes", "-p", "8099"]

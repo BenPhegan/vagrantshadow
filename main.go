@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/go-fsnotify/fsnotify"
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/go-fsnotify/fsnotify"
+	"github.com/gorilla/mux"
 )
 
 var boxDownloadsTotal = expvar.NewInt("box_downloads_total")

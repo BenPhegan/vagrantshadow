@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/mcuadros/go-version"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/mcuadros/go-version"
 )
 
 type BoxHandler struct {
@@ -183,7 +184,7 @@ func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) {
 					providerAppended = true
 				}
 			}
-			
+
 			if providerAppended == false {
 				newversion := Version{}
 				newversion.Status = "active"

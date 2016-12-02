@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/BenPhegan/vagrantshadow/Godeps/_workspace/src/github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCanConstructBoxFromFilename(t *testing.T) {
@@ -96,11 +97,10 @@ func TestCanGetTwoProvidersForOneVersion(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
 	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box"},
-						SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__vmware.box"}}
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "2.0", Location: "/tmp/benphegan-VAGRANTSLASH-dev__2.0__vmware.box"}}
 	host := "localhost"
 	bh.createBoxes(boxes, 80, &host)
 	assert.Equal(2, len(bh.Boxes["benphegan"]["dev"].Versions[0].Providers))
 	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__2.0__vmware.box", bh.GetBoxFileLocation("benphegan", "dev", "vmware", "2.0"))
 	assert.Equal("/tmp/benphegan-VAGRANTSLASH-dev__2.0__virtualbox.box", bh.GetBoxFileLocation("benphegan", "dev", "virtualbox", "2.0"))
 }
-
