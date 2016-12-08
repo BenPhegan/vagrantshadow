@@ -1,0 +1,38 @@
+go17win:
+  image: golang:1.7
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.7win:/out
+  environment:
+    GOOS: windows
+go17mac:
+  image: golang:1.7
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.7mac:/out
+  environment:
+    GOOS: darwin
+go17:
+  image: golang:1.7
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.7:/out
+go18:
+  image: golang:1.8
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.8:/out
+go18win:
+  image: golang:1.8
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.8win:/out
+  environment:
+    GOOS: windows
+go18mac:
+  image: golang:1.8
+  volumes:
+  - ./:/go/src/github.com/BenPhegan/vagrantshadow
+  - ./out/1.8mac:/out
+  environment:
+    GOOS: darwin

@@ -1,0 +1,16 @@
+- type: serial
+  steps:
+    - service: go17
+      command: go test -v github.com/BenPhegan/vagrantshadow
+- type: matrix
+  services:
+    - go18
+    - go18win
+    - go18mac
+    - go17
+    - go17win
+    - go17mac
+  steps:
+    - command: go version
+    - command: go build -v github.com/BenPhegan/vagrantshadow
+    - command: cp /go/src/github.com/BenPhegan/vagrantshadow/vagrantshadow /out
