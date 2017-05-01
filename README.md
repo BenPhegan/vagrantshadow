@@ -1,7 +1,7 @@
 vagrantshadow 
 =============
 
-[![Build Status](https://drone.io/github.com/BenPhegan/vagrantshadow/status.png)](https://drone.io/github.com/BenPhegan/vagrantshadow/latest)
+[![Build Status](https://circleci.com/gh/BenPhegan/vagrantshadow.svg?style=svg)](https://circleci.com/gh/BenPhegan/vagrantshadow)
 
 vagrantshadow provides a _very_ stripped back Vagrant Cloud capability that you can host behind a firewall with private boxes.  Currently it really only provides the discovery and download capability, and relies on `.box` files to be stored in a directory for discovery/serving.
 
