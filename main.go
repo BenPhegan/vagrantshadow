@@ -22,8 +22,9 @@ var boxChecks = expvar.NewMap("box_checks")
 var boxChecksTotal = expvar.NewInt("box_checks_total")
 var homepageVisits = expvar.NewInt("homepage_visits")
 var boxDownloads = expvar.NewMap("box_downloads")
+var requestUrlStats = expvar.NewMap("request_urls")
 
-func getBox(bh *BoxHandler) http.Handler {
+func getBox(bh *BoxHandler, defaultHostName string, useRequestHost bool) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		user := vars["user"]
@@ -34,6 +35,21 @@ func getBox(bh *BoxHandler) http.Handler {
 		log.Println("Queried for " + user + "/" + boxName)
 
 		box := bh.GetBox(user, boxName)
+
+		if useRequestHost {
+			log.Println("Using request Host to override download location:")
+			requestUrlStats.Add(r.Host, 1)
+			for _, version := range box.Versions {
+				for _, provider := range version.Providers {
+					log.Println("	Default: " + provider.DownloadUrl)
+					provider.DownloadUrl = "http://" + r.Host + "/" + box.Name + "/" + version.Version + "/" + provider.Name + "/" + provider.Name + ".box"
+					log.Println("	Updated: " + provider.DownloadUrl)
+				}
+			}
+
+		} else {
+			requestUrlStats.Add(defaultHostName, 1)
+		}
 
 		jsonResponse, _ := json.Marshal(box)
 
@@ -127,14 +143,19 @@ func main() {
 	directory := flag.String("d", "./", "Semicolon separated list of directories containing .box files")
 	port := flag.Int("p", 8099, "Port to listen on.")
 	hostname := flag.String("h", "localhost", "Hostname for static box content.")
-	templatefile := flag.String("t", "", "Template file for the vagrantshadow homepage, if you dont like the default!")
-	writeouttemplate := flag.Bool("w", false, "Write a template page to disk so you can modify")
+	templateFile := flag.String("t", "", "Template file for the vagrantshadow homepage, if you dont like the default!")
+	writeOutTemplate := flag.Bool("w", false, "Write a template page to disk so you can modify")
+	useRequestHost := flag.Bool("r", false, "Use the request Host value to specify download location of box files, overrides \"hostname\" setting")
 	flag.Parse()
 
 	home := HomePageTemplate{}
-	if *writeouttemplate {
+	if *writeOutTemplate {
 		//output a template homepage so people have something to play
 		home.OutputTemplateString("hometemplate.html")
+	}
+
+	if *useRequestHost {
+		log.Println("Using request host value for download URLs")
 	}
 
 	directories := strings.Split(*directory, ";")
@@ -152,12 +173,12 @@ func main() {
 	bh.Port = *port
 	bh.PopulateBoxes(directories, port, hostname)
 	home.BoxHandler = &bh
-	home.TemplateString = home.GetTemplateString(*templatefile)
+	home.TemplateString = home.GetTemplateString(*templateFile)
 
 	setUpFileWatcher(directories, func() { bh.PopulateBoxes(directories, port, hostname) })
 
 	m := mux.NewRouter()
-	m.Handle("/{user}/{boxname}", getBox(&bh)).Methods("GET")
+	m.Handle("/{user}/{boxname}", getBox(&bh, *hostname, *useRequestHost)).Methods("GET")
 	m.Handle("/{user}/{boxname}", checkBox(&bh)).Methods("HEAD")
 	m.Handle("/", showHomepage(&home)).Methods("GET")
 	//Handling downloads that look like Vagrant Cloud
