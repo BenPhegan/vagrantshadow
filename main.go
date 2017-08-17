@@ -39,11 +39,12 @@ func getBox(bh *BoxHandler, defaultHostName string, useRequestHost bool) http.Ha
 		if useRequestHost {
 			log.Println("Using request Host to override download location:")
 			requestUrlStats.Add(r.Host, 1)
-			for _, version := range box.Versions {
-				for _, provider := range version.Providers {
-					log.Println("	Default: " + provider.DownloadUrl)
-					provider.DownloadUrl = "http://" + r.Host + "/" + box.Name + "/" + version.Version + "/" + provider.Name + "/" + provider.Name + ".box"
-					log.Println("	Updated: " + provider.DownloadUrl)
+			for i, version := range box.Versions {
+				for j, provider := range version.Providers {
+					log.Println("   Default: " + provider.DownloadUrl)
+					box.Versions[i].Providers[j].DownloadUrl = "http://" + r.Host + "/" + box.Name + "/" + version.Version + "/" + provider.Name + "/" + provider.Name + ".box"
+					box.Versions[i].Providers[j].Url = box.Versions[i].Providers[j].DownloadUrl
+					log.Println("   Updated: " + box.Versions[i].Providers[j].DownloadUrl)
 				}
 			}
 
