@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"sort"
 )
 
 type BoxHandler struct {
@@ -203,15 +204,10 @@ func (bh *BoxHandler) createBoxes(sb []SimpleBox, port int, hostname *string) {
 			boxes[b.Username] = make(map[string]Box)
 		}
 
-		box.CurrentVersion = nil
-		for _, v := range box.Versions {
-			if box.CurrentVersion == nil {
-				box.CurrentVersion = &v
-			}
-			if version.Compare(box.CurrentVersion.Version, v.Version, "<") {
-				box.CurrentVersion = &v
-			}
-		}
+		sort.Slice(box.Versions[:], func(i, j int) bool {
+			return version.Compare(box.Versions[i].Version, box.Versions[j].Version, ">")
+		})
+		box.CurrentVersion = &box.Versions[0]
 
 		boxes[b.Username][b.Boxname] = box
 	}

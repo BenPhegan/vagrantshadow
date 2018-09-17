@@ -51,17 +51,43 @@ func TestSetsCorrectBoxAsCurrent(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
 	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0"},
-		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1"}}
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "1.0"}}
 	host := "localhost"
 	bh.createBoxes(boxes, 80, &host)
 	assert.Equal("4.1", bh.GetBox("benphegan", "dev").CurrentVersion.Version)
 }
 
+func TestSetsCorrectBoxAsCurrentBasedOnMinor(t *testing.T) {
+	assert := assert.New(t)
+	bh := BoxHandler{}
+	boxes := []SimpleBox{
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.3.9"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.4.10"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.3.100"}}
+	host := "localhost"
+	bh.createBoxes(boxes, 80, &host)
+	assert.Equal("0.4.10", bh.GetBox("benphegan", "dev").CurrentVersion.Version)
+}
+
+func TestSetsCorrectBoxAsCurrentBasedOnPatch(t *testing.T) {
+	assert := assert.New(t)
+	bh := BoxHandler{}
+	boxes := []SimpleBox{
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.3.9"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.3.100"},
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "0.3.10"}}
+	host := "localhost"
+	bh.createBoxes(boxes, 80, &host)
+	assert.Equal("0.3.100", bh.GetBox("benphegan", "dev").CurrentVersion.Version)
+}
+
+
 func TestCorrectProvidersCreated(t *testing.T) {
 	assert := assert.New(t)
 	bh := BoxHandler{}
-	boxes := []SimpleBox{SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0"},
+	boxes := []SimpleBox{
+		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "2.0"},
 		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "vmware", Version: "1.0"},
 		SimpleBox{Boxname: "dev", Username: "benphegan", Provider: "virtualbox", Version: "4.1"}}
 	host := "localhost"
