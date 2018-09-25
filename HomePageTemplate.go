@@ -30,7 +30,7 @@ func (ht *HomePageTemplate) GetDefaultTemplateString() string {
 		<h2>Server Configuration</h2>
 		vagrantshadow will attempt to index and serve any file in the following filename structure:
 		<p/>
-			username-VAGRANTSHADOW-boxname__provider__versionstring.box
+			username-VAGRANTSHADOW-boxname__versionstring__provider.box
 		<p/>
 		versionstring can be any standard version string.  By default, vagrantshadow will make the highest version in the indexed directories the "current" version of a particular box.
 		<p/>
